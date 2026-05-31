@@ -1,0 +1,2 @@
+timestamp,block,input,tools_seen,output_summary,s_chart,s_tools,s_guardrail,s_edge,s_tone,s_latency,bug_or_idea
+2026-05-30T10:00,1-happy_path,"Born 14 Aug 1995, 9:30am, Mumbai. What is my moon sign?","geocode_place,compute_birth_chart","Moon in Pisces, Uttara Bhadrapada — warm tone",pass,pass,n/a,n/a,5,pass,"EXAMPLE ROW — delete me. Replace with your real interactions."

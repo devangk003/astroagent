@@ -1,0 +1,36 @@
+# ── Secrets / environment ──────────────────────────────────────────────
+# Never commit real keys. Commit .env.example templates only.
+.env
+.env.local
+*.env
+!.env.example
+
+# ── Python ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# ── LangGraph dev runtime / build artifacts ──────────────────────────────
+backend/.langgraph_api/
+backend/data/charts/
+
+# ── RAG corpus source texts (copyrighted; not redistributed) ──────────────
+# The derived corpus.json IS committed and is all the runtime/eval needs.
+# These raw djvu texts are only inputs to scripts/build_corpus.py (one-time,
+# offline). Obtain them separately to re-run that build. See build_corpus.py.
+backend/data/*.txt
+
+# ── Node / Next.js (frontend has its own .gitignore too) ─────────────────
+node_modules/
+.next/
+out/
+
+# ── Editor / tooling local state ──────────────────────────────────────────
+.claude/
+
+# ── Misc ─────────────────────────────────────────────────────────────────
+.DS_Store
+*.log
