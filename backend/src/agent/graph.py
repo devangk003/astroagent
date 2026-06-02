@@ -13,10 +13,10 @@ from agent.state import AstroState, BirthDetails
 from agent.tools import TOOLS
 from agent.model import make_model, provider_api_key
 from agent.guardrails import (
-    SYSTEM_PROMPT, classify_input, crisis_response, injection_response,
-    classify_sensitive, sensitive_nudge,
+    SYSTEM_PROMPT, crisis_response, injection_response, sensitive_nudge,
     detect_output_violation, output_correction_instruction, safe_reframe,
-    detect_fatalistic_intent, detect_offtopic_intent, offtopic_redirect,
+    detect_offtopic_intent, detect_near_astrology_offtopic, offtopic_redirect,
+    route_input, sensitive_category, is_fatalistic,  # layered: keyword → semantic fallback
 )
 
 # Agent defaults read from .env — browser BYOK overrides these per-run. Provider is free to be
@@ -25,8 +25,8 @@ _DEFAULT_PROVIDER = os.environ.get("DEFAULT_PROVIDER", "ollama")
 _DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "qwen3.5:397b")
 
 # Tool-call budget (FR-A6 / NFR-5): hard cap on tool-calling turns per request so a
-# confused model cannot loop forever. A normal full flow is geocode → chart → svg →
-# transits → svg (~5); 8 leaves headroom for one retry without runaway cost.
+# confused model cannot loop forever. A normal full flow is geocode → chart →
+# transits (~3); 8 leaves headroom for retries without runaway cost.
 _MAX_TOOL_TURNS = 8
 
 
@@ -94,7 +94,7 @@ def router(state: AstroState) -> dict:
             "Is there anything else I can help you with?"
         ))]}
 
-    route = classify_input(content)
+    route = route_input(content)
     if route == "crisis":
         return {"messages": [
             AIMessage(content=crisis_response())
@@ -103,8 +103,9 @@ def router(state: AstroState) -> dict:
         return {"messages": [
             AIMessage(content=injection_response())
         ]}
-    # Off-topic trivia (conservative; only when no astrology/birth signal) → canned decline+steer.
-    if detect_offtopic_intent(content):
+    # Off-topic trivia (conservative; only when no astrology/birth signal) OR an unambiguous
+    # non-Vedic divination ask (tarot/numerology/palmistry/tropical) → canned decline+steer.
+    if detect_offtopic_intent(content) or detect_near_astrology_offtopic(content):
         return {"messages": [AIMessage(content=offtopic_redirect())]}
     return {}  # normal flow → fall through to agent
 
@@ -272,7 +273,7 @@ def agent(state: AstroState, config: RunnableConfig) -> dict:
             last_human.content if hasattr(last_human, "content")
             else last_human.get("content", "")
         )
-        sensitive = classify_sensitive(human_text)
+        sensitive = sensitive_category(human_text)
         if sensitive:
             msgs.append(SystemMessage(content=sensitive_nudge(sensitive)))
 
@@ -317,7 +318,11 @@ def agent(state: AstroState, config: RunnableConfig) -> dict:
         msgs.append(SystemMessage(content=(
             "A natal chart is already computed and cached for this user — do NOT call "
             "compute_birth_chart again. Use get_daily_transits (which reads this cached "
-            "chart automatically) for transit questions. Cached chart (sidereal/Lahiri):\n"
+            "chart automatically) for transit questions.\n"
+            "Explore this chart with warmth and curiosity: speak directly to the person "
+            "('your Moon', 'your Saturn'), frame each placement as a tendency to reflect on, "
+            "and invite them in rather than reciting data.\n"
+            "Cached chart (sidereal/Lahiri):\n"
             + json.dumps(chart)
         )))
 
@@ -368,8 +373,8 @@ def output_guard(state: AstroState, config: RunnableConfig) -> dict:
         None,
     )
     human_text = _msg_text(last_human) if last_human is not None else ""
-    category = classify_sensitive(human_text) if human_text else None
-    fatalistic = detect_fatalistic_intent(human_text)
+    category = sensitive_category(human_text) if human_text else None
+    fatalistic = is_fatalistic(human_text)
 
     violation = detect_output_violation(reply, category, fatalistic)
     if violation is None:

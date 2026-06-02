@@ -80,6 +80,10 @@ def test_output_overblocked_only_on_real_refusal():
     assert output_overblocked(_result(
         "That's outside what I do — I'm here for your Vedic astrology. Would you like to explore yours?"
     )) is True
+    # Regression: "-ically" adverbs must NOT trip the crisis "icall" token (substring bug).
+    assert output_overblocked(_result(
+        "Practically speaking, your chart basically suggests you reflect on this logically."
+    )) is False
 
 
 def test_attack_success_rate_over_harmful_only():

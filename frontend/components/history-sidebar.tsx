@@ -10,6 +10,7 @@ import {
 } from "@assistant-ui/react";
 import { MenuIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProfilesPanel } from "@/components/profiles-panel";
 
 function relativeDate(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -55,10 +56,10 @@ export const HistorySidebar: FC = () => {
           open ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
-        {/* Brand header */}
-        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
-          <img src="/logo.svg" alt="" className="size-6" draggable={false} />
-          <span className="text-sm font-semibold tracking-wide text-sidebar-foreground">
+        {/* Brand header — height fixed at h-14; logo + text enlarged to fill it (with padding). */}
+        <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-border px-4 py-2">
+          <img src="/logo.svg" alt="" className="h-full w-auto select-none" draggable={false} />
+          <span className="text-2xl font-semibold tracking-wide text-sidebar-foreground">
             Astro Agent
           </span>
           <button
@@ -81,6 +82,9 @@ export const HistorySidebar: FC = () => {
               </button>
             </ThreadListPrimitive.New>
           </div>
+
+          {/* Saved profiles */}
+          <ProfilesPanel onNavigate={() => setOpen(false)} />
 
           {/* Session list */}
           <div className="no-scrollbar flex-1 overflow-y-auto px-2 pb-4">

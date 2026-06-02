@@ -20,6 +20,8 @@ import { ToolFallback } from "@/components/tool-fallback";
 import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { ModelSelectorPill } from "@/components/model-selector";
 import { BirthFormPopup } from "@/components/birth-form-popup";
+import { SaveProfilePill } from "@/components/save-profile-pill";
+import { LotusBloom } from "@/components/lotus-bloom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -46,8 +48,17 @@ import {
   PencilIcon,
   RefreshCwIcon,
   SquareIcon,
+  XIcon,
 } from "lucide-react";
 import { type FC } from "react";
+import { ComposerAttachProfile } from "@/components/composer-attach-profile";
+import {
+  useAttachedProfile,
+  clearAttachedProfile,
+  parseProfileMessage,
+  useMessageProfileLabel,
+} from "@/lib/profiles";
+import { CircleUserRound } from "lucide-react";
 
 export const Thread: FC = () => {
   return (
@@ -61,14 +72,22 @@ export const Thread: FC = () => {
     >
       {/* ── Header ── */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border pl-14 pr-4 md:pl-4">
-        <div className="flex items-center gap-2">
-          <span className="text-base font-semibold tracking-wide text-foreground">
-            Astro Agent
-          </span>
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            by devangk003
-          </span>
-        </div>
+        <a
+          href="https://github.com/devangk003"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            aria-hidden
+            fill="currentColor"
+            className="size-3.5"
+          >
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+          </svg>
+          by devangk003
+        </a>
         <ModelSelectorPill />
       </header>
 
@@ -100,35 +119,33 @@ export const Thread: FC = () => {
               draggable={false}
               style={{ opacity: 0.13, filter: 'blur(22px) saturate(2)' }}
             />
-            {/* Sharp logo center */}
-            <img
-              src="/logo.svg"
-              alt=""
-              className="w-40 select-none"
-              draggable={false}
-              style={{
-                opacity: 0.11,
-                filter: 'drop-shadow(0 0 16px rgba(242,54,2,0.55)) drop-shadow(0 0 6px rgba(242,54,2,0.35))',
-              }}
-            />
-            {/* Grain overlay — absolute + positioned, renders above the flow imgs */}
+            {/* Grain — sits ABOVE the glow/background but BELOW the lotus, so it makes the glow
+                grainy (projected on the background) without darkening the main lotus. soft-light
+                blend textures the light instead of laying a flat dark layer over the color. */}
             <div
               className="absolute inset-0"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E")`,
                 backgroundSize: '256px 256px',
                 opacity: 0.55,
+                mixBlendMode: 'soft-light',
                 animation: 'astro-grain 8s steps(1) infinite',
+              }}
+            />
+            {/* Sharp logo center — the lotus blooms open on a fresh/new session (plays on mount).
+                Rendered LAST so it sits on top: crisp accent color, no grain/darkening over it. */}
+            <LotusBloom
+              size={176}
+              className="relative"
+              style={{
+                filter: 'drop-shadow(0 0 16px rgba(242,54,2,0.45)) drop-shadow(0 0 6px rgba(242,54,2,0.3))',
               }}
             />
           </div>
         </AuiIf>
 
         <div className="relative z-[1] mx-auto flex w-full min-w-0 max-w-(--thread-max-width) flex-1 flex-col px-4 pt-4">
-          <AuiIf condition={(s) => s.thread.isEmpty}>
-            <ThreadWelcome />
-          </AuiIf>
-
+          {/* Empty-state greeting text removed — the centered logo + glow above is the only welcome. */}
           <div
             data-slot="aui_message-group"
             className="mb-10 flex min-w-0 flex-col gap-y-8 empty:hidden"
@@ -141,6 +158,7 @@ export const Thread: FC = () => {
           <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer bg-background sticky bottom-0 mt-auto flex flex-col gap-4 overflow-visible rounded-t-(--composer-radius) pb-4 md:pb-6">
             <ThreadScrollToBottom />
             <BirthFormPopup />
+            <SaveProfilePill />
             <Composer />
           </ThreadPrimitive.ViewportFooter>
         </div>
@@ -172,21 +190,6 @@ const ThreadScrollToBottom: FC = () => {
   );
 };
 
-const ThreadWelcome: FC = () => {
-  return (
-    <div className="aui-thread-welcome-root my-auto flex grow flex-col items-center justify-center py-8">
-      <div className="flex flex-col items-center gap-2 text-center">
-        <h1 className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both text-2xl font-semibold tracking-wide duration-200">
-          Astro Agent
-        </h1>
-        <p className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both text-sm text-muted-foreground delay-75 duration-200">
-          by devangk003
-        </p>
-      </div>
-    </div>
-  );
-};
-
 const Composer: FC = () => {
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
@@ -195,6 +198,7 @@ const Composer: FC = () => {
           data-slot="aui_composer-shell"
           className="bg-background focus-within:border-ring/75 focus-within:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:bg-accent/50 flex w-full flex-col gap-2 rounded-(--composer-radius) border p-(--composer-padding) transition-shadow focus-within:ring-2 data-[dragging=true]:border-dashed"
         >
+          <AttachedProfileChip />
           <ComposerAttachments />
           <ComposerPrimitive.Input
             placeholder="Ask about your chart, transits, or Vedic astrology…"
@@ -210,10 +214,34 @@ const Composer: FC = () => {
   );
 };
 
+const AttachedProfileChip: FC = () => {
+  const attached = useAttachedProfile();
+  if (!attached) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 px-1">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 py-1 pl-2.5 pr-1 text-xs text-foreground">
+        <span className="text-muted-foreground">Profile:</span>
+        <span className="max-w-40 truncate font-medium">{attached.label}</span>
+        <button
+          type="button"
+          aria-label="Remove attached profile"
+          onClick={() => clearAttachedProfile()}
+          className="grid size-4 place-items-center rounded-full text-muted-foreground hover:bg-muted-foreground/20 hover:text-foreground"
+        >
+          <XIcon className="size-3" />
+        </button>
+      </span>
+    </div>
+  );
+};
+
 const ComposerAction: FC = () => {
   return (
     <div className="aui-composer-action-wrapper relative flex items-center justify-between">
-      <ComposerAddAttachment />
+      <div className="flex items-center gap-1">
+        <ComposerAddAttachment />
+        <ComposerAttachProfile />
+      </div>
       <AuiIf condition={(s) => !s.thread.isRunning}>
         <ComposerPrimitive.Send asChild>
           <TooltipIconButton
@@ -317,14 +345,8 @@ const AssistantMessage: FC = () => {
         </MessagePrimitive.GroupedParts>
 
         <AuiIf condition={(s) => s.message.status?.type === "running"}>
-          <div className="mt-2 flex items-center">
-            <img
-              src="/logo.svg"
-              alt=""
-              aria-label="Generating response…"
-              className="size-6"
-              style={{ animation: "astro-breathe 1.4s ease-in-out infinite" }}
-            />
+          <div className="mt-2 flex items-center" aria-label="Generating response…">
+            <LotusBloom size={28} durationMs={900} loop />
           </div>
         </AuiIf>
         <MessageError />
@@ -389,6 +411,35 @@ const AssistantActionBar: FC = () => {
   );
 };
 
+/** Renders a user message's text. If the message had a saved profile attached, show a compact
+ *  "Profile: {label}" chip instead of the verbose birth-details block, plus whatever the user typed.
+ *  Detection is robust across the optimistic phase (raw text → id tag) and the persisted phase
+ *  (injected block → content parse), so the chip shows consistently in both. */
+const UserMessageText: FC<{ text: string }> = ({ text }) => {
+  const id = useAuiState((s) => s.message.id);
+  const liveLabel = useMessageProfileLabel(id);
+  const parsed = parseProfileMessage(text);
+
+  const attached = parsed != null || liveLabel !== undefined;
+  if (!attached) return <span className="whitespace-pre-wrap">{text}</span>;
+
+  // Persisted: parsed.rest is the user's own text (block stripped). Optimistic: text already IS it.
+  const label = parsed?.label ?? liveLabel ?? null;
+  const rest = parsed ? parsed.rest : text;
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs"
+        style={{ backgroundColor: "rgba(0,0,0,0.12)" }}
+      >
+        <CircleUserRound className="size-3" />
+        Profile{label ? `: ${label}` : " attached"}
+      </span>
+      {rest && <span className="whitespace-pre-wrap">{rest}</span>}
+    </div>
+  );
+};
+
 const UserMessage: FC = () => {
   return (
     <MessagePrimitive.Root
@@ -400,7 +451,7 @@ const UserMessage: FC = () => {
 
       <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
         <div className="aui-user-message-content peer rounded-2xl px-4 py-2.5 wrap-break-word empty:hidden" style={{ backgroundColor: "var(--user-bubble-bg)", color: "var(--chip-text)" }}>
-          <MessagePrimitive.Parts />
+          <MessagePrimitive.Parts components={{ Text: UserMessageText }} />
         </div>
         <div className="aui-user-action-bar-wrapper absolute start-0 top-1/2 -translate-x-full -translate-y-1/2 pe-2 peer-empty:hidden rtl:translate-x-full">
           <UserActionBar />

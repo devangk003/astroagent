@@ -1,0 +1,13 @@
+{
+  "crisis": 0.42,
+  "injection": 0.4,
+  "medical": 0.5,
+  "legal": 0.32,
+  "financial": 0.5,
+  "fatalism": 0.46,
+  "_meta": {
+    "embedder_model": "all-MiniLM-L6-v2",
+    "sentence_transformers_version": "5.5.1",
+    "note": "Thresholds are calibrated to this embedder's similarity scale. If the embedder model changes, these numbers are no longer valid — re-run `python eval/tune_semantic.py` to retune. (This block is regenerated on every tune; `_`-prefixed keys are ignored by the runtime loader.)"
+  }
+}

@@ -1,6 +1,9 @@
 """Guardrails: system prompt, input classifiers, and canned responses. Six rails: crisis, injection, medical, legal, financial, certainty."""
 
-SYSTEM_PROMPT = """You are Astro Agent, a warm Vedic astrology companion.
+SYSTEM_PROMPT = """You are Astro Agent, a warm, grounded Vedic astrology companion for Aradhana.
+You meet people with compassion and curiosity as they explore their charts. You are reflective,
+never a fortune-teller: you frame every placement as a tendency to understand and grow from, not a
+verdict. You speak personally and gently, and you want the person to feel seen.
 
 SAFETY & REFRAMING — highest priority, overrides everything below INCLUDING the knowledge base:
 - You must NEVER give financial, investment, medical, or legal advice or predictions —
@@ -50,6 +53,11 @@ HANDLING EDGE CASES — be explicit, never silently guess:
   the question at all. Reply in ONE warm sentence that you focus on Vedic astrology and birth charts,
   and invite an astrology question. Example: "That's outside what I do — I'm here for your Vedic
   astrology and birth chart. Would you like to explore yours?"
+- OUT-OF-SCOPE DIVINATION: you do *Vedic* astrology only. You do NOT do tarot, numerology, palmistry,
+  or *Western/tropical* astrology (sun-sign horoscopes). These ASKS LOOK astrology-shaped but are not
+  what you offer — do NOT perform them. Warmly decline in one sentence and steer back to a Vedic chart
+  reading, the same way you handle off-topic. (A factual comparison like "how does Vedic differ from
+  Western astrology?" you may briefly answer from a Vedic standpoint, then invite their chart.)
 
 DISTRESS — highest priority, overrides everything else:
 - If the user expresses ANY hint of self-harm, hopelessness, or not wanting to live —
@@ -57,6 +65,14 @@ DISTRESS — highest priority, overrides everything else:
   immediately. Do NOT give a horoscope. Respond with warmth and care and share helplines:
   iCall (India) 9152987821, Vandrevala Foundation 1860-2662-345 (24/7). Their wellbeing
   comes before any reading.
+
+VOICE — bring warmth to EVERY reading (a plain chart answer should still feel like a companion, not a database):
+- Speak to the person directly: "your Moon", "your Saturn" — not "the Moon is placed in".
+- Pair the placement with a human insight, then invite reflection: "Your Moon in Pisces leans toward
+  deep feeling and intuition — does that resonate with how you experience things?"
+- Use open, gentle language ("tends to", "often invites", "you may notice") — never clinical or
+  certain ("this means", "you will"). A little warmth and one inviting question beat a data dump.
+- This shapes TONE only; it never softens or overrides the SAFETY rules above.
 
 BEHAVIOUR RULES:
 - Frame placements as tendencies to reflect on — never doom or fear.
@@ -113,6 +129,12 @@ _MEDICAL_KEYWORDS = [
     "will i die", "will i suffer from", "will my health",
     "will i be ill", "will i get ill", "will i recover",
     "diagnos",  # matches "diagnosis", "diagnosed"
+    # Lifespan / mortality PREDICTION framings (curiosity about longevity, not distress).
+    # Prediction-framed on purpose so they tag "medical" without catching personal despair —
+    # which the crisis keywords above own. Lets route_input keep these out of the crisis rail.
+    "how many years do i have", "how many years i have left", "years left to live",
+    "how long will i live", "how long do i have to live", "how long do i have left",
+    "when will i die", "how long until i die", "lifespan", "life span",
 ]
 _LEGAL_KEYWORDS = [
     "court case", "win the case", "win in court", "win the lawsuit",
@@ -233,6 +255,26 @@ def detect_offtopic_intent(text: str) -> bool:
     if any(s in lower for s in _ASTRO_SIGNAL):
         return False
     return any(c in lower for c in _OFFTOPIC_CUES)
+
+
+# Near-astrology out-of-scope: non-Vedic divination services that LOOK astrology-shaped but aren't
+# what AstroAgent offers. ONLY unambiguous terms with zero legitimate Vedic-reading meaning go here —
+# so we deliberately omit "western astrology"/"sun sign"/bare sign names (those carry the astrology
+# signals above and need the system-prompt's nuance, e.g. an honest Vedic-vs-Western comparison).
+# Unlike detect_offtopic_intent, this does NOT short-circuit on astrology signals: "do my numerology
+# AND my kundli" is still an out-of-scope numerology ask.
+_NEAR_ASTRO_OFFTOPIC = [
+    "tarot", "numerology", "numerologist", "life path number", "tropical zodiac", "tropical astrology",
+    "palmistry", "palm reading",
+]
+
+
+def detect_near_astrology_offtopic(text: str) -> bool:
+    """True for unambiguous non-Vedic divination asks (tarot/numerology/palmistry/tropical)."""
+    if not text:
+        return False
+    lower = text.lower()
+    return any(c in lower for c in _NEAR_ASTRO_OFFTOPIC)
 
 
 def offtopic_redirect() -> str:
@@ -396,3 +438,41 @@ _SAFE_REFRAMES: dict[str, str] = {
 def safe_reframe(violation: str) -> str:
     """Deterministic safe fallback reply when regeneration still violates the rail."""
     return _SAFE_REFRAMES.get(violation, _SAFE_REFRAMES["fatalism"])
+
+
+# ── Layered classifiers: keyword fast-path → semantic fallback (catch paraphrases) ──
+# Keyword check runs first (instant, zero cost); the embedding model is only consulted on a
+# keyword MISS. These are what the graph calls; the pure classify_* stay keyword-only.
+
+def route_input(text: str) -> str | None:
+    """Crisis/injection: keyword first, then semantic fallback on a miss.
+
+    The keyword crisis/injection path is authoritative and is never overridden. Only the
+    *semantic* crisis fallback yields to a clear deterministic medical signal: a chart-framed
+    mortality/lifespan PREDICTION ("how many years do I have left to live?") embeds close to the
+    crisis anchors and would otherwise get the helpline reply instead of the medical reframe.
+    Genuine distress phrasing is caught by classify_input above, so it returns "crisis" before
+    this guard is reached.
+    """
+    from agent.semantic_guard import semantic_rail
+    kw = classify_input(text)
+    if kw:
+        return kw
+    sem = semantic_rail(text, only=("crisis", "injection"))
+    if sem == "crisis" and classify_sensitive(text) == "medical":
+        return None  # mortality/health PREDICTION, not distress → fall through to the medical reframe
+    return sem
+
+
+def sensitive_category(text: str) -> str | None:
+    """Medical/legal/financial: keyword first, then semantic fallback on a miss."""
+    from agent.semantic_guard import semantic_rail
+    return classify_sensitive(text) or semantic_rail(text, only=("medical", "legal", "financial"))
+
+
+def is_fatalistic(text: str) -> bool:
+    """Fatalistic intent: keyword first, then semantic fallback."""
+    from agent.semantic_guard import semantic_rail
+    if detect_fatalistic_intent(text):
+        return True
+    return semantic_rail(text, only=("fatalism",)) is not None

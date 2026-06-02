@@ -14,11 +14,11 @@ _CORPUS_PATH = pathlib.Path(__file__).parent.parent / "knowledge" / "corpus.json
 @lru_cache(maxsize=1)
 def _load_index() -> tuple[list[str], np.ndarray, object]:
     """Load corpus, embed with sentence-transformers, cache for process lifetime."""
-    from sentence_transformers import SentenceTransformer
+    from agent.embedder import get_embedder
 
     entries = json.loads(_CORPUS_PATH.read_text(encoding="utf-8"))
     texts = [e["text"] for e in entries]
-    model = SentenceTransformer("all-MiniLM-L6-v2")
+    model = get_embedder()  # shared instance (also used by semantic_guard) → model loads once
     embeddings = model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
     return texts, embeddings, model
 

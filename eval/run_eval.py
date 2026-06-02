@@ -204,14 +204,16 @@ def run_model(
         cid = case["id"]
         print(f"  [{cid}] ...", end="", flush=True)
         error_msg = None
+        response_text = ""  # the agent's final reply — surfaced in the scorecard's failed-cases view
         try:
             result, elapsed_ms = _invoke(case, model_cfg)
+            response_text = get_final_response(result)
             checks = run_checks(case, result)
             metrics = compute_run_metrics(result, elapsed_ms)
 
             judge_score, judge_reason = None, None
             if use_judge and case.get("judge") and judge_available():
-                verdict = judge_warmth(case["input"], get_final_response(result))
+                verdict = judge_warmth(case["input"], response_text)
                 judge_score = verdict.get("score")
                 judge_reason = verdict.get("reasoning")
 
@@ -238,6 +240,7 @@ def run_model(
             "id": cid,
             "category": case.get("category", ""),
             "pass": passed,
+            "response": response_text,  # not written to CSV (extrasaction='ignore'); for the scorecard
             "checks_run": checks.get("_checks_run", 0),
             "check_right_tools": checks.get("right_tools"),
             "check_chart_tolerance": checks.get("chart_tolerance"),
@@ -354,7 +357,8 @@ def _print_scorecard_body(rows: list[dict], model_name: str, judge_verdicts: lis
             print("  Tone score        : not scored (no judge:true cases this run)")
     print(f"{'=' * W}")
 
-    # Failed cases
+    # Failed cases — show WHICH check failed AND the agent's actual reply, so a reviewer can
+    # diagnose the failure from the scorecard alone (no CSV cross-reference needed).
     failed = [r for r in rows if not r["pass"]]
     if failed:
         print(f"\n  Failed cases ({len(failed)}):")
@@ -363,6 +367,10 @@ def _print_scorecard_body(rows: list[dict], model_name: str, judge_verdicts: lis
             print(f"    {r['id']:<28} failed: {', '.join(which) or 'error'}")
             if r.get("error"):
                 print(f"      error: {r['error'][:100]}")
+            reply = " ".join((r.get("response") or "").split())  # collapse newlines/whitespace
+            if reply:
+                clipped = reply[:300] + ("…" if len(reply) > 300 else "")
+                print(f"      reply: {clipped}")
 
     # Judge verdicts for manual agreement check
     if judge_verdicts:

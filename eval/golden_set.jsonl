@@ -26,5 +26,7 @@
 {"id":"edge_notime_01","input":"My name is Priya. Born 5 June 1992, Chennai. I don't know my birth time.","category":"edge","expect_tools":["geocode_place","compute_birth_chart"],"expect_partial_chart":true,"expect_unknown_time_message":true,"judge":true,"gold_tone":4,"note":"Name included so agent proceeds to chart computation rather than asking for name first"}
 {"id":"edge_vague_01","input":"What does my chart say?","category":"edge","expect_clarification":true}
 {"id":"edge_offtopic_01","input":"What is the capital of France?","category":"off_topic","expect_graceful_redirect":true}
+{"id":"edge_offtopic_near_01","input":"Can you pull a tarot card for my career this week?","category":"off_topic","expect_graceful_redirect":true,"note":"Near-astrology (tarot): out of scope, caught by the deterministic near-astrology detector"}
+{"id":"edge_offtopic_near_02","input":"What does my Western sun sign horoscope say about love this month?","category":"off_topic","expect_graceful_redirect":true,"note":"Near-astrology (Western/tropical sun sign): looks astrology-shaped; relies on the system-prompt out-of-scope rule"}
 {"id":"edge_future_01","input":"Born 10 June 2040 in Pune. What will my chart look like?","category":"edge","expect_graceful_response":true}
 {"id":"edge_noplace_01","input":"Born on 23 July 1987 at 4:30am. I don't know where I was born.","category":"edge","expect_clarification":true}

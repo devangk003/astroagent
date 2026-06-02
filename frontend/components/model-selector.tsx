@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useModelConfig, type ModelConfig } from "@/context/model-config-context";
 import { cn } from "@/lib/utils";
@@ -64,18 +64,32 @@ export function ModelSelectorPill() {
         onClick={handleToggle}
         aria-expanded={open}
         aria-haspopup="true"
+        aria-label="Select AI model"
+        title="AI model — click to change"
         className={cn(
           "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
           "border-border bg-muted/40 text-foreground hover:bg-muted",
           open && "bg-muted ring-2 ring-ring/30",
         )}
       >
-        <span className="text-muted-foreground">{PROVIDER_LABELS[config.provider]}</span>
+        {/* Explicit label so the chip's purpose is self-evident (recognition over recall). */}
+        <Sparkles className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="text-muted-foreground">Model</span>
         <span className="text-muted-foreground/40">·</span>
-        <span className="max-w-[120px] truncate">{truncate(config.model, 20)}</span>
+        <span className="text-muted-foreground">
+          {config.provider ? PROVIDER_LABELS[config.provider] : "Default"}
+        </span>
+        {config.provider && (
+          <>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="max-w-[120px] truncate">
+              {config.model ? truncate(config.model, 18) : "server default"}
+            </span>
+          </>
+        )}
         <ChevronDownIcon
           className={cn(
-            "size-3 text-muted-foreground transition-transform duration-150",
+            "size-3 shrink-0 text-muted-foreground transition-transform duration-150",
             open && "rotate-180",
           )}
         />
@@ -91,55 +105,70 @@ export function ModelSelectorPill() {
               Provider
             </span>
             <div className="flex gap-1 rounded-lg bg-muted p-1">
-              {(["ollama", "openrouter"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setLocal((c) => ({ ...c, provider: p }))}
-                  className={cn(
-                    "flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                    local.provider === p
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {PROVIDER_LABELS[p]}
-                </button>
-              ))}
+              {([["", "Default"], ["ollama", "Ollama Cloud"], ["openrouter", "OpenRouter"]] as const).map(
+                ([p, label]) => (
+                  <button
+                    key={p || "default"}
+                    onClick={() =>
+                      setLocal((c) =>
+                        p === "" ? { ...c, provider: "", model: "" } : { ...c, provider: p },
+                      )
+                    }
+                    className={cn(
+                      "flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
+                      local.provider === p
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ),
+              )}
             </div>
           </div>
 
-          {/* Model string */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {local.provider === "ollama" ? "Model String" : "Model"}
-            </label>
-            <input
-              type="text"
-              value={local.model}
-              onChange={(e) => setLocal((c) => ({ ...c, model: e.target.value }))}
-              placeholder={local.provider === "openrouter" ? "qwen/qwen3-235b-a22b" : "qwen3.5:397b"}
-              className={inputCls}
-            />
-            {local.provider === "ollama" && (
-              <p className="text-[11px] text-muted-foreground">
-                Exact string shown on Ollama Cloud — e.g. <code>qwen3.5:397b</code>
-              </p>
-            )}
-          </div>
+          {local.provider === "" ? (
+            <p className="text-[11px] text-muted-foreground">
+              Using the server&apos;s configured model (backend <code>.env</code> DEFAULT_MODEL).
+              Pick a provider above to override it for this session.
+            </p>
+          ) : (
+            <>
+              {/* Model string */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {local.provider === "ollama" ? "Model String" : "Model"}
+                </label>
+                <input
+                  type="text"
+                  value={local.model}
+                  onChange={(e) => setLocal((c) => ({ ...c, model: e.target.value }))}
+                  placeholder={local.provider === "openrouter" ? "qwen/qwen3-235b-a22b" : "kimi-k2.6:cloud"}
+                  className={inputCls}
+                />
+                {local.provider === "ollama" && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Exact tag shown on Ollama Cloud — e.g. <code>kimi-k2.6:cloud</code>
+                  </p>
+                )}
+              </div>
 
-          {/* API key */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {local.provider === "ollama" ? "Ollama Cloud Key" : "OpenRouter Key"}
-            </label>
-            <input
-              type="password"
-              value={local.apiKey}
-              onChange={(e) => setLocal((c) => ({ ...c, apiKey: e.target.value }))}
-              placeholder="Session only — resets on refresh"
-              className={inputCls}
-            />
-          </div>
+              {/* API key */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {local.provider === "ollama" ? "Ollama Cloud Key" : "OpenRouter Key"}
+                </label>
+                <input
+                  type="password"
+                  value={local.apiKey}
+                  onChange={(e) => setLocal((c) => ({ ...c, apiKey: e.target.value }))}
+                  placeholder="Session only — resets on refresh"
+                  className={inputCls}
+                />
+              </div>
+            </>
+          )}
 
           <Button onClick={handleApply} size="sm" className="w-full">
             Apply

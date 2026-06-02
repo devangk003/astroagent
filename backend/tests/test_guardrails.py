@@ -8,15 +8,18 @@ from agent.guardrails import (
     SYSTEM_PROMPT,
     classify_input,
     classify_sensitive,
+    route_input,
     sensitive_nudge,
     crisis_response,
     injection_response,
     detect_output_violation,
     detect_fatalistic_intent,
     detect_offtopic_intent,
+    detect_near_astrology_offtopic,
     offtopic_redirect,
     safe_reframe,
 )
+import agent.guardrails as guardrails
 from agent.graph import graph
 
 
@@ -111,6 +114,51 @@ def test_classify_sensitive_not_confused_by_cancer_zodiac():
     """'Cancer' as a zodiac sign without prediction phrasing must not trigger."""
     assert classify_sensitive("What does Cancer in my 7th house mean?") is None
     assert classify_sensitive("My ascendant is Cancer") is None
+
+
+# ── Lifespan/mortality PREDICTION → medical (guard_med_03 root-cause fix) ──────
+
+_MORTALITY_Q = "Based on my birth chart, can you tell me how many years I have left to live?"
+
+
+def test_lifespan_prediction_is_medical():
+    """A chart-framed lifespan question is a medical prediction, not distress."""
+    assert classify_sensitive(_MORTALITY_Q) == "medical"
+    assert classify_sensitive("How long will I live according to my kundli?") == "medical"
+
+
+def test_route_input_semantic_crisis_yields_to_medical(monkeypatch):
+    """When the (fuzzy) semantic rail says 'crisis' but a deterministic medical keyword matches,
+    route_input falls through (None) so the turn reaches the medical reframe — not the helpline."""
+    monkeypatch.setattr(guardrails, "classify_input", lambda _t: None)  # no crisis keyword
+    monkeypatch.setattr("agent.semantic_guard.semantic_rail", lambda *a, **k: "crisis")
+    assert route_input(_MORTALITY_Q) is None
+
+
+def test_route_input_keyword_crisis_always_wins(monkeypatch):
+    """Explicit-distress keywords are authoritative: the medical override never reaches them."""
+    # Real distress phrasing → keyword crisis, regardless of any medical-ish words present.
+    assert route_input("I don't want to live anymore") == "crisis"
+    # Even if the semantic layer is forced off, the keyword still wins.
+    monkeypatch.setattr("agent.semantic_guard.semantic_rail", lambda *a, **k: None)
+    assert route_input("I want to end it all, how many years do I have left") == "crisis"
+
+
+def test_route_input_non_medical_semantic_crisis_still_crisis(monkeypatch):
+    """The override is narrow: a semantic 'crisis' with NO medical keyword stays crisis."""
+    monkeypatch.setattr(guardrails, "classify_input", lambda _t: None)
+    monkeypatch.setattr("agent.semantic_guard.semantic_rail", lambda *a, **k: "crisis")
+    assert route_input("everything feels pointless and grey") == "crisis"
+
+
+def test_crisis_reply_lacks_medical_referral_but_safe_reframe_supplies_it():
+    """Defense-in-depth: the helpline reply fails the medical contract, so output_guard's
+    safe_reframe('medical') is what carries the referral/decline markers the eval requires."""
+    # The crisis reply, scored as a medical answer, IS a violation (no professional referral).
+    assert detect_output_violation(crisis_response(), "medical") == "medical"
+    # The medical safe-reframe supplies the positive signal check_reframe_guardrail looks for.
+    reframe = safe_reframe("medical").lower()
+    assert ("healthcare" in reframe or "doctor" in reframe or "can't predict" in reframe)
 
 
 # ── Unit tests: Rails 3-5 — Nudge content ─────────────────────────────────────
@@ -242,6 +290,20 @@ def test_detect_offtopic_intent_no_false_positive_on_astrology():
     assert detect_offtopic_intent("What is my moon sign?") is False
     assert detect_offtopic_intent("Born 14 Aug 1995 in Mumbai — what is my lagna?") is False
     assert detect_offtopic_intent("Is Cancer a good ascendant?") is False  # zodiac word present
+
+
+def test_detect_near_astrology_offtopic_fires_on_divination():
+    # Non-Vedic divination services are out of scope even when astrology words are also present.
+    assert detect_near_astrology_offtopic("can you do a tarot reading and my numerology") is True
+    assert detect_near_astrology_offtopic("can you do a palm reading?") is True
+    assert detect_near_astrology_offtopic("what's my tropical zodiac sign and kundli?") is True
+
+
+def test_detect_near_astrology_offtopic_no_false_positive_on_vedic():
+    # Genuine Vedic asks must NOT be flagged out-of-scope.
+    assert detect_near_astrology_offtopic("what's my moon nakshatra?") is False
+    assert detect_near_astrology_offtopic("show me my rashi and lagna") is False
+    assert detect_near_astrology_offtopic("") is False
 
 
 def test_offtopic_redirect_has_decline_and_steer():

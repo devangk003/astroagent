@@ -1,0 +1,39 @@
+/* Lotus fall-open — every petal STARTS rotated to vertical (standing, stacked over the centre
+   petal), then rotates around the lotus BASE POINT (≈44,56 in the 88×88 viewBox) outward to its
+   natural place, like petals falling open left & right. Each petal's natural orientation is
+   rotate(0); we begin it at rotate(--start-angle) (the negative of its fanned angle, so it stands
+   vertical) and animate back to 0.
+
+   transform-box: view-box → transform-origin resolves in the SVG's own coordinates, so all petals
+   pivot around the SAME base point. (animate.css presets pivot on each element's own centre, so
+   this shared-pivot fan is a custom keyframe; animate.css still drives the container fade.) */
+.petal {
+  transform-box: view-box;
+  transform-origin: 44px 56px;
+  animation: petal-fall var(--fall-duration, 1100ms) cubic-bezier(0.34, 1.25, 0.64, 1) both;
+  will-change: transform;
+}
+
+@keyframes petal-fall {
+  /* brief "standing" hold, then fall outward and settle (slight overshoot) */
+  0%,
+  16% {
+    transform: rotate(var(--start-angle, 0deg));
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+/* Looping variant (used as the "generating" indicator): fall open, then reverse back to standing,
+   forever — a gentle breathing lotus. Longhands override the .petal shorthand (defined after it). */
+.loop {
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .petal {
+    animation: none;
+  }
+}

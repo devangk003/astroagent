@@ -47,8 +47,8 @@ def _compute_chart(
     """
     from agent.tools._ephemeris import build_subject
 
-    # Name "Natal" (not "User") so the subject is shared with the SVG render path,
-    # which also builds a "Natal" subject. compute_birth_chart never exposes the name.
+    # Subject name is internal only — compute_birth_chart never exposes it. "Natal" is a
+    # stable, descriptive label (transits.py builds a separate "Transit" subject).
     s = build_subject("Natal", year, month, day, hour, minute, lat, lng, tz)
 
     chart = {

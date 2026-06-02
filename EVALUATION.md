@@ -4,7 +4,7 @@ How AstroAgent is evaluated, what the eval revealed, and what I'd fix next.
 
 ## Methodology
 
-The harness (`eval/run_eval.py`) runs a versioned **golden set** of 30 cases
+The harness (`eval/run_eval.py`) runs a versioned **golden set** of 32 cases
 (`eval/golden_set.jsonl`) through the real LangGraph graph and scores each case. One command
 prints a scorecard and appends per-case rows to `eval/results_log.csv` (regression tracking).
 
@@ -37,7 +37,16 @@ each within ~1°. The tightened checks themselves are unit-tested in `tests/test
 **2. LLM-as-judge — tone only (different model family).** Warmth/appropriateness on a 1–5 rubric,
 judged by an **OpenRouter judge** whose model is set via `JUDGE_MODEL` in `.env` (no model string is
 hardcoded; the judge uses OpenRouter keys only). Pick a model from a **different family** than the
-agent for unbiased scoring. Tone is the one genuinely subjective dimension; everything else is deterministic. **Judge validation (EV03):** the
+agent for unbiased scoring. Tone is the one genuinely subjective dimension; everything else is deterministic.
+
+**On judge bias.** LLM-as-judge scoring carries known, documented biases — notably **verbosity bias**
+(longer answers scored higher regardless of quality) and **position bias** (order-dependent
+preference) — characterised by Zheng et al., *Judging LLM-as-a-Judge with MT-Bench* (2023). Two
+choices guard against them here: the **different-family judge** (a judge from another model family
+won't simply reward outputs that look like its own), and the **agreement rate** below, which is the
+explicit check that the judge tracks human judgement rather than its own bias. We use the judge for
+tone only — the one subjective axis — and never let it gate a pass/fail, precisely because of these
+biases. **Judge validation (EV03):** the
 10 `judge:true` cases carry a human `gold_tone` label; the runner computes an **agreement rate**
 (`|judge − gold| ≤ 1`) and prints it. (`gold_tone` is the tone a *correct* reply should earn — an
 approximation, since responses are non-deterministic; it sanity-checks that the judge isn't wildly

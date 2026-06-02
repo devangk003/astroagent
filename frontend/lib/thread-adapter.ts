@@ -1,6 +1,7 @@
 import type { RemoteThreadListAdapter } from "@assistant-ui/core";
 import type { Client } from "@langchain/langgraph-sdk";
 import type { AssistantStream } from "assistant-stream";
+import { setActiveThreadId } from "@/lib/profiles";
 
 type RawMsg = { type?: string; role?: string; content?: unknown };
 
@@ -31,7 +32,10 @@ export function createLangGraphThreadAdapter(client: Client): RemoteThreadListAd
     },
 
     initialize: async () => {
+      // Profile reuse is via message-injection in the stream wrapper (app/assistant.tsx), not
+      // thread-state seeding — so this just creates the thread and records the active id.
       const { thread_id } = await client.threads.create();
+      setActiveThreadId(thread_id);
       return { remoteId: thread_id, externalId: thread_id };
     },
 

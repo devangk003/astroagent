@@ -126,9 +126,17 @@ python eval/run_eval.py                     # scorecard (see EVALUATION.md / eva
   the system prompt + output rail are the backstop; see EVALUATION.md. The output rail's markers are
   also deterministic, so novel phrasings can still slip — the eval's ASR makes that visible.
 - **Guardrail eval is hand-curated** (32 cases), not auto red-teamed (DeepTeam/promptfoo) — out of scope.
-- **Geocoding** uses Nominatim's single best match with user-facing confirmation (no disambiguation picker).
+- **Geocoding** uses Nominatim's single best match with user-facing confirmation (no disambiguation
+  picker). *Future scope:* a user-driven location picker (see below).
 - **Ephemeris** bounded to 1800–2200.
 - **Conversation persistence** relies on `langgraph dev`'s in-memory store (lost on restart).
+- **Saved profiles** (save a birth profile, then start new chats with it) are stored in the
+  **browser's localStorage** — per-device, not synced, and cleared if site data is wiped. Birth data
+  stays on the user's device. You save a profile from an **in-thread prompt that slides up once a
+  reading is ready** (Save / Cancel); the sidebar lists saved profiles to start a new chat, rename
+  inline, or delete. Starting a chat **attaches** the profile — its birth details and saved
+  coordinates are injected into the first message, so the agent reads them verbatim, skips geocoding,
+  and reuses the (cached) chart computation instead of re-asking.
 - **Birth details** travel as prose (tolerant parse + a contract test); a fully structured transport
   is the deeper fix, deferred.
 - **No visual chart rendering** — the `render_chart_svg` tool and its inline chart card were
@@ -137,6 +145,19 @@ python eval/run_eval.py                     # scorecard (see EVALUATION.md / eva
 
 Deferred astrology scope (intentional, per the PRD): dasha timelines, kundli matching, divisional
 charts, yogas/doshas, panchang, and Indian-language support.
+
+## Future scope
+
+- **Self-service location picker (designed, not built).** Replace the free-text place field in the
+  birth form with an interactive map + search so the user pins their exact birthplace and we capture
+  **lat/lng directly** — removing geocoding ambiguity. Free, no-key stack: Leaflet + OpenStreetMap
+  tiles + Photon autocomplete (`photon.komoot.io`). Coordinates ride along in the birth message; the
+  backend parses them and derives the timezone locally via `timezonefinder` (already a dependency, no
+  Google Time Zone API), so the agent uses the coordinates directly and **skips `geocode_place`**
+  (more accurate, one fewer tool call). The agent already has the "coordinates resolved →
+  compute_birth_chart" branch and `BirthDetails` already carries `lat/lng/tz`, so this is mostly a
+  frontend addition + a small `extract_birth_details` regex/timezone change. Typed-place input stays
+  as the fallback. (Full design captured during planning; deferred — not implemented.)
 
 ## Repo layout
 
